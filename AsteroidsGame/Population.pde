@@ -15,17 +15,50 @@ class Population {
   }
   //------------------------------------------------------------------------------------------------------------------------------------------
   //update all the players which are alive
-  void updateAlive() {
-
+  // Show only the given one
+  void updateAlive(int showWhich) {
     for (int i = 0; i< players.length; i++) {
       if (!players[i].dead) {
         players[i].look();//get inputs for brain 
         players[i].think();//use outputs from neural network
         players[i].update();//move the player according to the outputs from the neural network
-        if (!showBest || i ==0) {//dont show dead players
+        if (i == showWhich) { // Display the actual game for non-dead players
           players[i].show();
         }
+      } else {
+        if (i == showWhich) {
+          // Display a death message for dead players
+          textFont(font);
+          fill(255, 0, 0);
+          textAlign(CENTER);
+          text("DEAD", width/2, height/2);
+        }
       }
+    }
+  }
+  //------------------------------------------------------------------------------------------------------------------------------------------
+  void showStatus() {
+    int xOffset = 0;
+    int yOffset = 100;
+    int xStep = 50;
+    int yStep = 30;
+    int x = 0;
+    int y = yOffset;
+    for (int i = 0; i < players.length; i++) {
+      // Calculate the position for this text
+      x += xStep;
+      if (x > width - xStep) {
+        x = xStep;
+        y += yStep;
+      }
+      textFont(smallFont);
+      if (players[i].dead) {
+        fill(255, 0, 0);
+      } else {
+        fill(0, 255, 0);
+      }
+      textAlign(CENTER);
+      text(nf(i, 3), x, y);
     }
   }
   //------------------------------------------------------------------------------------------------------------------------------------------

@@ -1,19 +1,23 @@
 Player humanPlayer;//the player which the user (you) controls
-Population pop; 
+Population pop;
 int speed = 100;
+int POP_SIZE = 414;
+int currentInView = 0;
 float globalMutationRate = 0.1;
 PFont font;
+PFont smallFont;
 //boolean Values 
-boolean showBest = true;//true if only show the best of the previous generation
+boolean showBest = false;//true if show a ship playing
 boolean runBest = false; //true if replaying the best ever game
 boolean humanPlaying = false; //true if the user is playing
 void setup() {//on startup
   size(1200, 675);
 
   humanPlayer = new Player();
-  pop = new Population(200);// create new population of size 200
+  pop = new Population(POP_SIZE);// create new population of size 200
   frameRate(speed);
-  font = loadFont("AgencyFB-Reg-48.vlw");
+  font = loadFont("LiberationSans-48.vlw");
+  smallFont = loadFont("LiberationSans-24.vlw");
 }
 //------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -26,20 +30,31 @@ void draw() {
     } else {//once done return to ai
       humanPlaying = false;
     }
-  } else 
-  if (runBest) {// if replaying the best ever game
-    if (!pop.bestPlayer.dead) {//if best player is not dead
-      pop.bestPlayer.look();
-      pop.bestPlayer.think();
-      pop.bestPlayer.update();
-      pop.bestPlayer.show();
-    } else {//once dead
-      runBest = false;//stop replaying it
-      pop.bestPlayer = pop.bestPlayer.cloneForReplay();//reset the best player so it can play again
-    }
+  } else if (runBest) {// if replaying the best ever game
+    if (pop.bestPlayer == null) { // Can't do that if there's no best
+      runBest = false;
+    } else {
+      if (!pop.bestPlayer.dead) {//if best player is not dead
+        pop.bestPlayer.look();
+        pop.bestPlayer.think();
+        pop.bestPlayer.update();
+        pop.bestPlayer.show();
+      } else {//once dead
+        runBest = false;//stop replaying it
+        pop.bestPlayer = pop.bestPlayer.cloneForReplay();//reset the best player so it can play again
+      }
+  }
   } else {//if just evolving normally
     if (!pop.done()) {//if any players are alive then update them
-      pop.updateAlive();
+      if (showBest) {
+        // Show the selected player
+        pop.updateAlive(currentInView);
+      } else {
+        // Show no player, but still update
+        pop.updateAlive(-1);
+        pop.showStatus();
+        showScore();
+      }
     } else {//all dead
       //genetic algorithm 
       pop.calculateFitness(); 
@@ -95,9 +110,24 @@ void keyPressed() {
       humanPlayer.boosting = true;
     }
     if (keyCode == LEFT) {
-      humanPlayer.spin = -0.08;
+      if (humanPlaying) {
+        humanPlayer.spin = -0.08;
+      } else {
+        do {
+          currentInView = (currentInView - 1) % POP_SIZE;
+          if (currentInView < 0) {
+            currentInView = POP_SIZE - 1;
+          }
+        } while (pop.players[currentInView].dead);
+      }
     } else if (keyCode == RIGHT) {
-      humanPlayer.spin = 0.08;
+      if (humanPlaying) {
+        humanPlayer.spin = 0.08;
+      } else {
+        do {
+          currentInView = (currentInView + 1) % POP_SIZE;
+        } while (pop.players[currentInView].dead);
+      }
     }
   }
 }
@@ -145,8 +175,32 @@ void showScore() {
         textFont(font);
         fill(255);
         textAlign(LEFT);
-        text("Score: " + pop.players[0].score, 80, 60);
-        text("Gen: " + pop.gen, width-200, 60);
+        text("Score: " + pop.players[currentInView].score, 80, 60);
+        text("Gen: " + pop.gen + " Ind: " + currentInView, width-500, 60);
+      } else {
+        // For the status indicator
+        textFont(font);
+        fill(255);
+        textAlign(LEFT);
+        text("Player Status ", 80, 60);
+        text("Gen: " + pop.gen, width-300, 60);
       }
     }
+  
+  // Show the current state
+  textFont(smallFont);
+  fill(128);
+  textAlign(CENTER);
+  int statusX = width/2;
+  int statusY = height - 20;
+  if (humanPlaying) {
+    text("Human Playing. SPACEBAR fired weapon, left and right rotate, up fires booster.", statusX, statusY);
+  } else if (showBest) {
+    text("Computer Playing. Left and right cycle through living individuals; SPACEBAR to view status.", statusX, statusY);
+  } else if (runBest) {
+    text("Replay. b exits.", statusX, statusY);
+  } else {
+    text("SPACEBAR to exit status mode. d/h double and halve mutation rate: " + globalMutationRate, statusX, statusY);
+  }
+  text("Target FPS (+ and -): " + speed + ", Actual FPS: " + nf(int(frameRate), 3), statusX, statusY - 20);
 }
