@@ -9,6 +9,7 @@ class Population {
   //constructor
   Population(int size) {
     players = new Player[size];
+    int seed = floor(random(1000000000));
     for (int i =0; i<players.length; i++) {
       players[i] = new Player();
     }
@@ -98,6 +99,7 @@ class Population {
 
   void naturalSelection() {
 
+    int newSeed = floor(random(1000000000));
 
     Player[] newPlayers = new Player[players.length];//Create new players array for the next generation
 
@@ -107,7 +109,12 @@ class Population {
     newPlayers[1] = players[bestPlayerNo].clone();
     newPlayers[2] = players[bestPlayerNo].clone();
     newPlayers[3] = players[bestPlayerNo].clone();
-    for (int i = 4; i<players.length; i++) {
+    
+    // Get some fresh blood
+    newPlayers[4] = new Player();
+    newPlayers[5] = new Player();
+    
+    for (int i = 6; i<players.length; i++) {
       //for each remaining spot in the next generation
       if (i<players.length/2) {
         newPlayers[i] = selectPlayer().crossover(selectPlayer()); // select a random player (based on fitness) and cross it with another random player

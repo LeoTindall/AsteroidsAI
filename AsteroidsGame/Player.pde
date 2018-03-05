@@ -5,7 +5,7 @@ class Player {
   
   int INITIAL_FUEL = 500;
   int INITIAL_AMMO = 45;
-  float ACTIVATION_THRESHOLD = 0.9;
+  float ACTIVATION_THRESHOLD = 0.82;
 
   int score = 0;//how many asteroids have been shot
   int shootCount = 0;//stops the player from shooting too quickly
@@ -40,6 +40,7 @@ class Player {
   String[] visionDescriptors = {
           "Forward", "Foreleft", "Left", "Rearleft", "Rearward", "Rearright", "Right", "Foreright",
           "Can Shoot", "Ammo", "Fuel"};
+  String[] rnnDescriptors = {"Logistic Memory", "Quadratic Memory", "Linear Memory 1", "Linear Memory 2"};
 
   int shotsFired =4;//initiated at 4 to encourage shooting
   int shotsHit = 1; //initiated at 1 so players dont get a fitness of 1
@@ -54,7 +55,7 @@ class Player {
     vel = new PVector();
     acc = new PVector();  
     rotation = 0;
-    SeedUsed = floor(random(1000000000));//create and store a seed
+    SeedUsed = floor(random(1000000000)); //create and store a seed
     randomSeed(SeedUsed);
 
     //generate asteroids
@@ -237,7 +238,7 @@ class Player {
           fill(yellow, yellow, blue);
           textY -= 20;
           //text(nf(vision[j], 1, 6), width-10, textY);
-          text("RNN Memory", width-10, textY);
+          text(rnnDescriptors[j - visionDescriptors.length], width-10, textY);
         }
         
         for (int j = 0; j < visionDescriptors.length; j++) {
@@ -376,13 +377,16 @@ class Player {
   //looks in 8 directions to find asteroids
   //also takes into account ability to shoot, ammo, and fuel
   void look() {
+    // Roll the buffer
     last3Vision = last2Vision;
     last2Vision = lastVision;
     lastVision = vision;
-    lastVision[11] = decision[4];
-    lastVision[12] = decision[5];
-    lastVision[13] = decision[6];
-    lastVision[14] = decision[7];
+    
+    // Process recursion.
+    lastVision[11] = constrain(log(decision[4]), 0, 1);
+    lastVision[12] = constrain(decision[5] * decision[5], 0, 1);
+    lastVision[13] = constrain(decision[6], 0, 1);
+    lastVision[14] = constrain(decision[7], 0, 1);
     vision = new float[15];
     //look left
     PVector direction;
