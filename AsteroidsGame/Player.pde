@@ -4,7 +4,8 @@ class Player {
   PVector acc;
   
   int INITIAL_FUEL = 500;
-  int INITIAL_AMMO = 15;
+  int INITIAL_AMMO = 45;
+  float ACTIVATION_THRESHOLD = 0.9;
 
   int score = 0;//how many asteroids have been shot
   int shootCount = 0;//stops the player from shooting too quickly
@@ -23,14 +24,22 @@ class Player {
   int boostCount = 10;//makes the booster flash
   //--------AI stuff
   NeuralNet brain;
-  float[] vision = new float[8];//the input array fed into the neuralNet 
-  float[] decision = new float[4]; //the out put of the NN 
+  float[] vision = new float[15];//the input array fed into the neuralNet
+  float[] lastVision = new float[15]; // the previous input array
+  float[] last2Vision = new float[15]; // the previous input array
+  float[] last3Vision = new float[15]; // the previous input array
+  float[] decision = new float[8]; //the out put of the NN 
   boolean replay = false;//whether the player is being raplayed 
   //since asteroids are spawned randomly when replaying the player we need to use a random seed to repeat the same randomness
   long SeedUsed; //the random seed used to intiate the asteroids
   ArrayList<Long> seedsUsed = new ArrayList<Long>();//seeds used for all the spawned asteroids
   int upToSeedNo = 0;//which position in the arrayList 
   float fitness;
+  
+  String[] decisionDescriptors = {"Boost", "Left", "Right", "Fire"};
+  String[] visionDescriptors = {
+          "Forward", "Foreleft", "Left", "Rearleft", "Rearward", "Rearright", "Right", "Foreright",
+          "Can Shoot", "Ammo", "Fuel"};
 
   int shotsFired =4;//initiated at 4 to encourage shooting
   int shotsHit = 1; //initiated at 1 so players dont get a fitness of 1
@@ -57,7 +66,7 @@ class Player {
     float randX = random(width);
     float randY = -50 +floor(random(2))* (height+100);
     asteroids.add(new Asteroid(randX, randY, pos.x- randX, pos.y - randY, 3));     
-    brain = new NeuralNet(12, 32, 4);
+    brain = new NeuralNet(60, 48, 8); // Hidden layers are 2/3 * input + output 
   }
   //------------------------------------------------------------------------------------------------------------------------------------------
   //constructor used for replaying players
@@ -209,12 +218,11 @@ class Player {
         text("A" + nf(ammo, 6), 10, height - 40);
         
         // Draw decision counts/inputs
-        String[] decisionDescriptors = {"Boost", "Left", "Right", "Fire"};
         textAlign(RIGHT);
         textFont(smallFont);
         int textY = height - 40;
-        for (int j = 0; j < decision.length; j++) {
-          if (decision[j] > 0.8) {
+        for (int j = 0; j < decisionDescriptors.length; j++) {
+          if (decision[j] > ACTIVATION_THRESHOLD) {
             fill(0, 256, 0);
           } else {
             fill(256, 0, 0);
@@ -223,11 +231,16 @@ class Player {
           text(decisionDescriptors[j] + ": " + nf(decision[j], 1, 6), width - 10, textY);
         }
         
-        String[] visionDescriptors = {
-          "Forward", "Foreleft", "Left", "Rearleft", "Rearward", "Rearright", "Right", "Foreright",
-          "Can Shoot", "Ammo", "Fuel", "Bias"
-        };
-        for (int j = 0; j < vision.length; j++) {
+        for (int j = visionDescriptors.length; j < lastVision.length; j++) {
+          int yellow = int(256.0 * lastVision[j]);
+          int blue = int(256.0 * (1.0 - lastVision[j]));
+          fill(yellow, yellow, blue);
+          textY -= 20;
+          //text(nf(vision[j], 1, 6), width-10, textY);
+          text("RNN Memory", width-10, textY);
+        }
+        
+        for (int j = 0; j < visionDescriptors.length; j++) {
           int yellow = int(256.0 * vision[j]);
           int blue = int(256.0 * (1.0 - vision[j]));
           fill(yellow, yellow, blue);
@@ -326,12 +339,10 @@ class Player {
   //---------------------------------------------------------------------------------------------------------------------------------------------------------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
   //for genetic algorithm
   void calculateFitness() {
-    /* float hitRate = (float)shotsHit/(float)shotsFired;
-    fitness = (score+1)*10;
+    float hitRate = (float)shotsHit/(float)shotsFired;
+    fitness = (score+1) * 100;
     fitness *= lifespan;
     fitness *= hitRate*hitRate;//includes hitrate to encourage aiming
-    */
-    fitness = (score + 1) * 10;
     
   }
 
@@ -365,7 +376,14 @@ class Player {
   //looks in 8 directions to find asteroids
   //also takes into account ability to shoot, ammo, and fuel
   void look() {
-    vision = new float[12];
+    last3Vision = last2Vision;
+    last2Vision = lastVision;
+    lastVision = vision;
+    lastVision[11] = decision[4];
+    lastVision[12] = decision[5];
+    lastVision[13] = decision[6];
+    lastVision[14] = decision[7];
+    vision = new float[15];
     //look left
     PVector direction;
     for (int i = 0; i< vision.length; i++) {
@@ -382,8 +400,6 @@ class Player {
     
     vision[9] = float(ammo) / INITIAL_AMMO;
     vision[10] = float(fuel) / INITIAL_FUEL;
-    
-    vision[11] = 1.0; // Bias.
   }
   //---------------------------------------------------------------------------------------------------------------------------------------------------------  
 
@@ -458,22 +474,29 @@ class Player {
   //convert the output of the neural network to actions
   void think() {
     //get the output of the neural network
-    decision = brain.output(vision);
+    float[] input = new float[vision.length * 4];
+    for (int i = 0; i < vision.length; i++) {
+      input[i] = vision[i];
+      input[i+11] = lastVision[i];
+      input[i+22] = last2Vision[i];
+      input[i+33] = last3Vision[1];
+    }
+    decision = brain.output(input);
 
-    if (decision[0] > 0.8) {//output 0 is boosting
+    if (decision[0] > ACTIVATION_THRESHOLD) {//output 0 is boosting
       boosting = true;
     } else {
       boosting = false;
     }
-    if (decision[1] > 0.8 && decision[2] < 0.8) {//output 1 is turn left
+    if (decision[1] > ACTIVATION_THRESHOLD && decision[2] < ACTIVATION_THRESHOLD) {//output 1 is turn left
       spin = -0.08;
-    } else if (decision[2] > 0.8 && decision[1] < 0.8) {//output 2 is turn right
+    } else if (decision[2] > ACTIVATION_THRESHOLD && decision[1] < ACTIVATION_THRESHOLD) {//output 2 is turn right
         spin = 0.08;
     } else {//if neither or indicisive
         spin = 0;
     }
     //shooting
-    if (decision[3] > 0.8) {//output 3 is shooting
+    if (decision[3] > ACTIVATION_THRESHOLD) {//output 3 is shooting
       shoot();
     }
   }

@@ -1,7 +1,7 @@
 Player humanPlayer;//the player which the user (you) controls
 Population pop;
 int speed = 512;
-int POP_SIZE = 200; // 414 is the most that fits on the screen
+int POP_SIZE = 69; // 414 is the most that fits on the screen
 int currentInView = 0;
 float globalMutationRate = 0.1;
 PFont font;
@@ -28,6 +28,7 @@ void draw() {
   if (humanPlaying) {//if the user is controling the ship[
     if (!humanPlayer.dead) {//if the player isnt dead then move and show the player based on input
       humanPlayer.update();
+      humanPlayer.look(); // just so the player can see analagous inputs
       humanPlayer.show();
     } else {//once done return to ai
       humanPlaying = false;
@@ -179,6 +180,13 @@ void showScore() {
         textAlign(LEFT);
         text("Score: " + pop.players[currentInView].score, 80, 60);
         text("Gen: " + pop.gen + " Ind: " + currentInView, width-500, 60);
+        
+        if (frameCount % 10 == 0) {
+          pop.players[currentInView].calculateFitness();
+        }
+        
+        textFont(tinyFont);
+        text("Fitness: " + pop.players[currentInView].fitness, 80, 70);
       } else {
         // For the status indicator
         textFont(font);

@@ -104,12 +104,15 @@ class Population {
     setBestPlayer();//set which player is the best
 
     newPlayers[0] = players[bestPlayerNo].cloneForReplay();//add the best player of this generation to the next generation without mutation
-    for (int i = 1; i<players.length; i++) {
+    newPlayers[1] = players[bestPlayerNo].clone();
+    newPlayers[2] = players[bestPlayerNo].clone();
+    newPlayers[3] = players[bestPlayerNo].clone();
+    for (int i = 4; i<players.length; i++) {
       //for each remaining spot in the next generation
       if (i<players.length/2) {
-        newPlayers[i] = selectPlayer().clone();//select a random player(based on fitness) and clone it
+        newPlayers[i] = selectPlayer().crossover(selectPlayer()); // select a random player (based on fitness) and cross it with another random player
       } else {
-        newPlayers[i] = selectPlayer().crossover(selectPlayer());
+        newPlayers[i] = players[bestPlayerNo].crossover(selectPlayer()); // Select a random player and cross it with the best
       }
       newPlayers[i].mutate(); //mutate it
     }
@@ -134,7 +137,7 @@ class Population {
       fitnessSum += players[i].fitness;
     }
     int rand = floor(random(fitnessSum));
-    //summy is the current fitness sum
+    //runningSum is the current fitness sum
     int runningSum = 0;
 
     for (int i = 0; i< players.length; i++) {

@@ -224,7 +224,7 @@ class Matrix {
       for (int j = 0; j<cols; j++) {
         float rand = random(1);
         if (rand<mutationRate) {//if chosen to be mutated
-          matrix[i][j] += randomGaussian()/5;//add a random value to it(can be negative)
+          matrix[i][j] += random(-0.1, 0.1)/5;
           
           //set the boundaries to 1 and -1
           if (matrix[i][j]>1) {
