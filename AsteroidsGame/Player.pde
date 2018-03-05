@@ -4,10 +4,10 @@ class Player {
   PVector acc;
   
   float INITIAL_FUEL = 50;
-  float INITIAL_AMMO = 5 ;
+  float INITIAL_AMMO = 1;
   float FUEL_PER_FRAME = 0.01;
   float BULLETS_PER_FRAME = 0.003;
-  float ACTIVATION_THRESHOLD = 0.82;
+  float ACTIVATION_THRESHOLD = 0.9;
 
   int score = 0;//how many asteroids have been shot
   int shootCount = 0;//stops the player from shooting too quickly
@@ -26,24 +26,28 @@ class Player {
   int boostCount = 10;//makes the booster flash
   //--------AI stuff
   NeuralNet brain;
-  float[] vision = new float[15];//the input array fed into the neuralNet
-  float[] lastVision = new float[15]; // the previous input array
-  float[] decision = new float[8]; //the out put of the NN 
-  boolean replay = false;//whether the player is being raplayed 
+  int VISION_LEN = 11;
+  int MEMORY = 2;
+  int DECISION_LEN = 4;
+  float[] vision = new float[VISION_LEN];//the input array fed into the neuralNet
+  float[] lastVision = new float[VISION_LEN]; // the previous input array
+  float[] decision = new float[DECISION_LEN]; //the out put of the NN 
+  boolean replay = false;//whether the player is being replayed 
   //since asteroids are spawned randomly when replaying the player we need to use a random seed to repeat the same randomness
   long SeedUsed; //the random seed used to intiate the asteroids
   ArrayList<Long> seedsUsed = new ArrayList<Long>();//seeds used for all the spawned asteroids
   int upToSeedNo = 0;//which position in the arrayList 
   float fitness;
   
-  String[] decisionDescriptors = {"Boost", "Left", "Right", "Fire"};
+  String[] decisionDescriptors = {"Boost", "Right", "Left", "Fire"};
   String[] visionDescriptors = {
           "Forward", "Foreleft", "Left", "Rearleft", "Rearward", "Rearright", "Right", "Foreright",
           "Can Shoot", "Ammo", "Fuel"};
-  String[] rnnDescriptors = {"Negative Memory 1", "Negative Memory 2", "Storage  Memory 1", "Storage  Memory 2"};
 
-  int shotsFired =4;//initiated at 4 to encourage shooting
-  int shotsHit = 1; //initiated at 1 so players dont get a fitness of 1
+  // Number of shots fired so far
+  int shotsFired = 0;
+  // Number of shots hit so far
+  int shotsHit = 0;
 
   int lifespan = 0;//how long the player lived for fitness
 
@@ -67,7 +71,7 @@ class Player {
     float randX = random(width);
     float randY = -50 +floor(random(2))* (height+100);
     asteroids.add(new Asteroid(randX, randY, pos.x- randX, pos.y - randY, 3));     
-    brain = new NeuralNet(30, 28, 8); // Hidden layers are 2/3 * input + output
+    brain = new NeuralNet(VISION_LEN * MEMORY, VISION_LEN * MEMORY + DECISION_LEN, DECISION_LEN); // Hidden layers are input + output
   }
   //------------------------------------------------------------------------------------------------------------------------------------------
   //constructor used for replaying players
@@ -232,15 +236,6 @@ class Player {
           text(decisionDescriptors[j] + ": " + nf(decision[j], 1, 6), width - 10, textY);
         }
         
-        for (int j = visionDescriptors.length; j < lastVision.length; j++) {
-          int yellow = int(256.0 * lastVision[j]);
-          int blue = int(256.0 * (1.0 - lastVision[j]));
-          fill(yellow, yellow, blue);
-          textY -= 20;
-          //text(nf(vision[j], 1, 6), width-10, textY);
-          text(rnnDescriptors[j - visionDescriptors.length], width-10, textY);
-        }
-        
         for (int j = 0; j < visionDescriptors.length; j++) {
           int yellow = int(256.0 * vision[j]);
           int blue = int(256.0 * (1.0 - vision[j]));
@@ -344,6 +339,9 @@ class Player {
   //for genetic algorithm
   void calculateFitness() {
     float hitRate = (float)shotsHit/(float)shotsFired;
+    if (hitRate != hitRate) { // if hitRate is NaN then set it to a relatively low rate
+      hitRate = 0.1;
+    }
     fitness = lifespan;
     fitness += score * hitRate * hitRate;//includes hitrate to encourage aiming
     
@@ -382,12 +380,8 @@ class Player {
     // Roll the buffer
     lastVision = vision;
     
-    // Process recursion.
-    lastVision[11] = 1 - decision[4];
-    lastVision[12] = 1 - decision[5];
-    lastVision[13] = decision[6];
-    lastVision[14] = decision[7];
-    vision = new float[15];
+    // Look around
+    vision = new float[VISION_LEN];
     //look left
     PVector direction;
     for (int i = 0; i< vision.length; i++) {
@@ -486,21 +480,19 @@ class Player {
       }
     }
     decision = brain.output(input);
+    
+    boolean doBoost = decision[0] > ACTIVATION_THRESHOLD;
+    float spinMagnitude = norm(decision[1], 0, ACTIVATION_THRESHOLD) * 0.08;
+    float spinInverseMagnitude = norm(decision[2], 0, ACTIVATION_THRESHOLD) * 0.08;
+    boolean doShoot = decision[3] > ACTIVATION_THRESHOLD;
 
-    if (decision[0] > ACTIVATION_THRESHOLD) {//output 0 is boosting
-      boosting = true;
-    } else {
-      boosting = false;
-    }
-    if (decision[1] > ACTIVATION_THRESHOLD && decision[2] < ACTIVATION_THRESHOLD) {//output 1 is turn left
-      spin = -0.08;
-    } else if (decision[2] > ACTIVATION_THRESHOLD && decision[1] < ACTIVATION_THRESHOLD) {//output 2 is turn right
-        spin = 0.08;
-    } else {//if neither or indicisive
-        spin = 0;
-    }
+    // Try to boost!
+    boosting = doBoost;
+    
+    spin = spinMagnitude - spinInverseMagnitude;
+
     //shooting
-    if (decision[3] > ACTIVATION_THRESHOLD) {//output 3 is shooting
+    if (doShoot) {
       shoot();
     }
   }

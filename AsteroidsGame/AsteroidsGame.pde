@@ -1,21 +1,25 @@
-Player humanPlayer;//the player which the user (you) controls
-Population pop;
-int speed = 512;
+// Configuration values
 int POP_SIZE = 414; // 414 is the most that fits on the screen
+int INITIAL_SPEED = 256;
+float INITIAL_MUTATION_RATE = 0.1;
+
+// State values
+Population pop;
+int speed = INITIAL_SPEED;
 int currentInView = 0;
-float globalMutationRate = 0.1;
+float globalMutationRate = INITIAL_MUTATION_RATE;
 PFont font;
 PFont smallFont;
 PFont tinyFont;
+
 //boolean Values 
-boolean showBest = false;//true if show a ship playing
-boolean runBest = false; //true if replaying the best ever game
-boolean humanPlaying = false; //true if the user is playing
+boolean showPlaying = false;//true if show a ship playing
+boolean replayBest = false; //true if replaying the best ever game
+
 void setup() {//on startup
   size(1200, 675);
 
-  humanPlayer = new Player();
-  pop = new Population(POP_SIZE);// create new population of size 200
+  pop = new Population(POP_SIZE);
   frameRate(speed);
   font = loadFont("LiberationSans-48.vlw");
   smallFont = loadFont("LiberationSans-24.vlw");
@@ -25,17 +29,9 @@ void setup() {//on startup
 
 void draw() {
   background(0); //deep space background
-  if (humanPlaying) {//if the user is controling the ship[
-    if (!humanPlayer.dead) {//if the player isnt dead then move and show the player based on input
-      humanPlayer.update();
-      humanPlayer.look(); // just so the player can see analagous inputs
-      humanPlayer.show();
-    } else {//once done return to ai
-      humanPlaying = false;
-    }
-  } else if (runBest) {// if replaying the best ever game
+  if (replayBest) {// if replaying the best ever game
     if (pop.bestPlayer == null) { // Can't do that if there's no best
-      runBest = false;
+      replayBest = false;
     } else {
       if (!pop.bestPlayer.dead) {//if best player is not dead
         pop.bestPlayer.look();
@@ -43,13 +39,13 @@ void draw() {
         pop.bestPlayer.update();
         pop.bestPlayer.show();
       } else {//once dead
-        runBest = false;//stop replaying it
+        replayBest = false;//stop replaying it
         pop.bestPlayer = pop.bestPlayer.cloneForReplay();//reset the best player so it can play again
       }
   }
   } else {//if just evolving normally
     if (!pop.done()) {//if any players are alive then update them
-      if (showBest) {
+      if (showPlaying) {
         // Show the selected player
         pop.updateAlive(currentInView);
       } else {
@@ -71,80 +67,46 @@ void draw() {
 void keyPressed() {
   switch(key) {
   case ' ':
-    if (humanPlaying) {//if the user is controlling a ship shoot
-      humanPlayer.shoot();
-    } else {//if not toggle showBest
-      showBest = !showBest;
-    }
+      // Toggle between playing and scoreboard
+      showPlaying = !showPlaying;
     break;
-  case 'p'://play
-    humanPlaying = !humanPlaying;
-    humanPlayer = new Player();
-    break;  
   case '+'://speed up frame rate
     speed += 10;
     frameRate(speed);
-    println(speed);
-
     break;
   case '-'://slow down frame rate
     if (speed > 10) {
       speed -= 10;
       frameRate(speed);
-      println(speed);
     }
     break;
   case 'h'://halve the mutation rate
     globalMutationRate /=2;
-    println(globalMutationRate);
     break;
   case 'd'://double the mutation rate
     globalMutationRate *= 2;
-    println(globalMutationRate);
     break;
-  case 'b'://run the best
-    runBest = true;
+  case 'b':
+    // Toggle re-playing the best ever
+    replayBest = !replayBest;
     break;
   }
   
-  //player controls
+  // Move through possible views.
   if (key == CODED) {
-    if (keyCode == UP) {
-      humanPlayer.boosting = true;
-    }
     if (keyCode == LEFT) {
-      if (humanPlaying) {
-        humanPlayer.spin = -0.08;
-      } else {
-        do {
-          currentInView = (currentInView - 1) % POP_SIZE;
-          if (currentInView < 0) {
-            currentInView = POP_SIZE - 1;
-          }
-        } while (pop.players[currentInView].dead);
-      }
+      int lastInView = currentInView;
+      do {
+        currentInView = (currentInView - 1) % POP_SIZE;
+        if (currentInView < 0) {
+          currentInView = POP_SIZE - 1;
+        }
+      } while (pop.players[currentInView].dead && currentInView != lastInView);
     } else if (keyCode == RIGHT) {
-      if (humanPlaying) {
-        humanPlayer.spin = 0.08;
-      } else {
-        do {
-          currentInView = (currentInView + 1) % POP_SIZE;
-        } while (pop.players[currentInView].dead);
-      }
-    }
-  }
-}
-
-void keyReleased() {
-  //once key released
-  if (key == CODED) {
-    if (keyCode == UP) {//stop boosting
-      humanPlayer.boosting = false;
-    }
-    if (keyCode == LEFT) {// stop turning
-      humanPlayer.spin = 0;
-    } else if (keyCode == RIGHT) {
-      humanPlayer.spin = 0;
+      int lastInView = currentInView;
+      do {
+        currentInView = (currentInView + 1) % POP_SIZE;
+      } while (pop.players[currentInView].dead && currentInView != lastInView);
     }
   }
 }
@@ -161,41 +123,34 @@ boolean isOut(PVector pos) {
 //------------------------------------------------------------------------------------------------------------------------------------------
 //shows the score and the generation on the screen
 void showScore() {
-  if (humanPlaying) {
+  // If replaying the best ever game, display info about it.
+  if (replayBest) {
     textFont(font);
     fill(255);
     textAlign(LEFT);
-    text("Score: " + humanPlayer.score, 80, 60);
-  } else
-    if (runBest) {
-      textFont(font);
-      fill(255);
-      textAlign(LEFT);
-      text("Score: " + pop.bestPlayer.score, 80, 60);
-      text("Gen: " + pop.gen, width-200, 60);
-    } else {
-      if (showBest) {
-        textFont(font);
-        fill(255);
-        textAlign(LEFT);
-        text("Score: " + pop.players[currentInView].score, 80, 60);
-        text("Gen: " + pop.gen + " Ind: " + currentInView, width-500, 60);
-        
-        if (frameCount % 10 == 0) {
-          pop.players[currentInView].calculateFitness();
-        }
-        
-        textFont(tinyFont);
-        text("Fitness: " + pop.players[currentInView].fitness, 80, 70);
-      } else {
-        // For the status indicator
-        textFont(font);
-        fill(255);
-        textAlign(LEFT);
-        text("Player Status ", 80, 60);
-        text("Gen: " + pop.gen, width-300, 60);
-      }
+    text("Score: " + pop.bestPlayer.score, 80, 60);
+    text("Gen: " + pop.gen, width-200, 60);
+  } else if (showPlaying) {
+    textFont(font);
+    fill(255);
+    textAlign(LEFT);
+    text("Score: " + pop.players[currentInView].score, 80, 60);
+    text("Gen: " + pop.gen + " Ind: " + currentInView, width-500, 60);
+    
+    if (frameCount % 10 == 0) {
+      pop.players[currentInView].calculateFitness();
     }
+    // Show fitness
+    textFont(tinyFont);
+    text("Fitness: " + pop.players[currentInView].fitness, 80, 70);
+  } else {
+    // For the status indicator
+    textFont(font);
+    fill(255);
+    textAlign(LEFT);
+    text("Player Status ", 80, 60);
+    text("Gen: " + pop.gen, width-300, 60);
+  }
   
   // Show the current state
   textFont(smallFont);
@@ -203,12 +158,10 @@ void showScore() {
   textAlign(CENTER);
   int statusX = width/2;
   int statusY = height - 20;
-  if (humanPlaying) {
-    text("Human Playing. SPACEBAR fired weapon, left and right rotate, up fires booster.", statusX, statusY);
-  } else if (showBest) {
+  if (showPlaying) {
     text("Computer Playing. Left and right cycle through living individuals; SPACEBAR to view status.", statusX, statusY);
-  } else if (runBest) {
-    text("Replay. b exits.", statusX, statusY);
+  } else if (replayBest) {
+    text("Replay of best fit so far. b exits.", statusX, statusY);
   } else {
     text("SPACEBAR to exit status mode. d/h double and halve mutation rate: " + globalMutationRate, statusX, statusY);
   }
