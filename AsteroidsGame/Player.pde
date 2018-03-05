@@ -2,6 +2,9 @@ class Player {
   PVector pos;
   PVector vel;
   PVector acc;
+  
+  int INITIAL_FUEL = 500;
+  int INITIAL_AMMO = 15;
 
   int score = 0;//how many asteroids have been shot
   int shootCount = 0;//stops the player from shooting too quickly
@@ -12,7 +15,9 @@ class Player {
   ArrayList<Bullet> bullets = new ArrayList<Bullet>(); //the bullets currently on screen
   ArrayList<Asteroid> asteroids = new ArrayList<Asteroid>(); // all the asteroids
   int asteroidCount = 1000;//the time until the next asteroid spawns
-  int lives = 0;//no lives 
+  int lives = 0;//no lives
+  int fuel = INITIAL_FUEL;
+  int ammo = INITIAL_AMMO;
   boolean dead = false;//is it dead
   int immortalCount = 0; //when the player looses a life and respawns it is immortal for a small amount of time  
   int boostCount = 10;//makes the booster flash
@@ -52,7 +57,7 @@ class Player {
     float randX = random(width);
     float randY = -50 +floor(random(2))* (height+100);
     asteroids.add(new Asteroid(randX, randY, pos.x- randX, pos.y - randY, 3));     
-    brain = new NeuralNet(9, 16, 4);
+    brain = new NeuralNet(12, 32, 4);
   }
   //------------------------------------------------------------------------------------------------------------------------------------------
   //constructor used for replaying players
@@ -60,7 +65,7 @@ class Player {
     replay = true;//is replaying
     pos = new PVector(width/2, height/2);
     vel = new PVector();
-    acc = new PVector();  
+    acc = new PVector();
     rotation = 0;
     SeedUsed = seed;//use the parameter seed to set the asteroids at the same position as the last one
     randomSeed(SeedUsed);
@@ -89,7 +94,7 @@ class Player {
 
       vel.add(acc);//velocity += acceleration
       vel.limit(maxSpeed);
-      vel.mult(0.99);
+      //vel.mult(0.99); // uncomment to enable decelleration. I prefer not to have that.
       pos.add(vel);//position += velocity
 
       for (int i = 0; i < bullets.size(); i++) {//move all the bullets
@@ -137,8 +142,13 @@ class Player {
   //------------------------------------------------------------------------------------------------------------------------------------------
   //booster
   void boost() {
-    acc = PVector.fromAngle(rotation); 
-    acc.setMag(0.1);
+    acc = PVector.fromAngle(rotation);
+    if (fuel > 0) {
+      acc.setMag(0.1);
+      fuel -= 0.1;
+    } else {
+      boostOff();
+    }
   }
 
   //------------------------------------------------------------------------------------------------------------------------------------------
@@ -181,7 +191,7 @@ class Player {
         line(-size-2, -size, -size-2, size);
         line(2* size -2, 0, -22, 15);
         line(2* size -2, 0, -22, -15);
-        if (boosting ) {//when boosting draw "flames" its just a little triangle
+        if (boosting && fuel > 0) {//when boosting draw "flames" its just a little triangle
           boostCount --;
           if (floor(((float)boostCount)/3)%2 ==0) {//only show it half of the time to appear like its flashing
             line(-size-2, 6, -size-2-12, 0);
@@ -189,6 +199,42 @@ class Player {
           }
         }
         popMatrix();
+        
+        // Draw the fuel and ammo counts
+        textAlign(LEFT);
+        textFont(smallFont);
+        fill(256, 256, 0);
+        text("F" + nf(fuel, 6), 10, height - 20);
+        fill(0, 0, 256);
+        text("A" + nf(ammo, 6), 10, height - 40);
+        
+        // Draw decision counts/inputs
+        String[] decisionDescriptors = {"Boost", "Left", "Right", "Fire"};
+        textAlign(RIGHT);
+        textFont(smallFont);
+        int textY = height - 40;
+        for (int j = 0; j < decision.length; j++) {
+          if (decision[j] > 0.8) {
+            fill(0, 256, 0);
+          } else {
+            fill(256, 0, 0);
+          }
+          textY -= 20;
+          text(decisionDescriptors[j] + ": " + nf(decision[j], 1, 6), width - 10, textY);
+        }
+        
+        String[] visionDescriptors = {
+          "Forward", "Foreleft", "Left", "Rearleft", "Rearward", "Rearright", "Right", "Foreright",
+          "Can Shoot", "Ammo", "Fuel", "Bias"
+        };
+        for (int j = 0; j < vision.length; j++) {
+          int yellow = int(256.0 * vision[j]);
+          int blue = int(256.0 * (1.0 - vision[j]));
+          fill(yellow, yellow, blue);
+          textY -= 20;
+          //text(nf(vision[j], 1, 6), width-10, textY);
+          text(visionDescriptors[j], width-10, textY);
+        }
       }
     }
     for (int i = 0; i < asteroids.size(); i++) {//show asteroids
@@ -198,11 +244,12 @@ class Player {
   //------------------------------------------------------------------------------------------------------------------------------------------
   //shoot a bullet
   void shoot() {
-    if (shootCount <=0) {//if can shoot
+    if (shootCount <=0 && ammo > 0) {//if can shoot
       bullets.add(new Bullet(pos.x, pos.y, rotation, vel.mag()));//create bullet
       shootCount = 30;//reset shoot count
       canShoot = false;
       shotsFired ++;
+      ammo --;
     }
   }
   //------------------------------------------------------------------------------------------------------------------------------------------
@@ -279,10 +326,13 @@ class Player {
   //---------------------------------------------------------------------------------------------------------------------------------------------------------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
   //for genetic algorithm
   void calculateFitness() {
-    float hitRate = (float)shotsHit/(float)shotsFired;
+    /* float hitRate = (float)shotsHit/(float)shotsFired;
     fitness = (score+1)*10;
     fitness *= lifespan;
     fitness *= hitRate*hitRate;//includes hitrate to encourage aiming
+    */
+    fitness = (score + 1) * 10;
+    
   }
 
   //---------------------------------------------------------------------------------------------------------------------------------------------------------  
@@ -313,8 +363,9 @@ class Player {
   //---------------------------------------------------------------------------------------------------------------------------------------------------------  
 
   //looks in 8 directions to find asteroids
+  //also takes into account ability to shoot, ammo, and fuel
   void look() {
-    vision = new float[9];
+    vision = new float[12];
     //look left
     PVector direction;
     for (int i = 0; i< vision.length; i++) {
@@ -323,11 +374,16 @@ class Player {
       vision[i] = lookInDirection(direction);
     }
 
-    if (canShoot && vision[0] !=0) {
+    if (canShoot) {
       vision[8] = 1;
     } else {
       vision[8] =0;
     }
+    
+    vision[9] = float(ammo) / INITIAL_AMMO;
+    vision[10] = float(fuel) / INITIAL_FUEL;
+    
+    vision[11] = 1.0; // Bias.
   }
   //---------------------------------------------------------------------------------------------------------------------------------------------------------  
 
@@ -335,7 +391,7 @@ class Player {
   float lookInDirection(PVector direction) {
     //set up a temp array to hold the values that are going to be passed to the main vision array
 
-    PVector position = new PVector(pos.x, pos.y);//the position where we are currently looking for food or tail or wall
+    PVector position = new PVector(pos.x, pos.y);//the position where we are currently looking
     float distance = 0;
     //move once in the desired direction before starting 
     position.add(direction);
@@ -347,7 +403,7 @@ class Player {
 
       for (Asteroid a : asteroids) {
         if (a.lookForHit(position) ) {
-          return  1/distance;
+          return 1/log(distance);
         }
       }
 
@@ -366,8 +422,6 @@ class Player {
       } else  if (position.x > width + 50) {
         position.x -= width +100;
       }
-
-
       distance +=1;
     }
     return 0;
@@ -411,14 +465,12 @@ class Player {
     } else {
       boosting = false;
     }
-    if (decision[1] > 0.8) {//output 1 is turn left
+    if (decision[1] > 0.8 && decision[2] < 0.8) {//output 1 is turn left
       spin = -0.08;
-    } else {//cant turn right and left at the same time 
-      if (decision[2] > 0.8) {//output 2 is turn right
+    } else if (decision[2] > 0.8 && decision[1] < 0.8) {//output 2 is turn right
         spin = 0.08;
-      } else {//if neither then dont turn
+    } else {//if neither or indicisive
         spin = 0;
-      }
     }
     //shooting
     if (decision[3] > 0.8) {//output 3 is shooting

@@ -4,6 +4,8 @@ Source code for an Asteroids-like game and an AI that learns to play it.
 
 This code requires Processing to run.
 
+![A screenshot of play.](screens/play.png)
+
 ## Controls for a Human Player
 
 - SPACE fires the craft's weapon

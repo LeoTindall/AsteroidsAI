@@ -1,11 +1,12 @@
 Player humanPlayer;//the player which the user (you) controls
 Population pop;
-int speed = 100;
-int POP_SIZE = 414;
+int speed = 512;
+int POP_SIZE = 200; // 414 is the most that fits on the screen
 int currentInView = 0;
 float globalMutationRate = 0.1;
 PFont font;
 PFont smallFont;
+PFont tinyFont;
 //boolean Values 
 boolean showBest = false;//true if show a ship playing
 boolean runBest = false; //true if replaying the best ever game
@@ -18,6 +19,7 @@ void setup() {//on startup
   frameRate(speed);
   font = loadFont("LiberationSans-48.vlw");
   smallFont = loadFont("LiberationSans-24.vlw");
+  tinyFont = loadFont("LiberationSans-12.vlw");
 }
 //------------------------------------------------------------------------------------------------------------------------------------------
 
