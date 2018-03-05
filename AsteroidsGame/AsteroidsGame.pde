@@ -1,7 +1,7 @@
 Player humanPlayer;//the player which the user (you) controls
 Population pop;
 int speed = 512;
-int POP_SIZE = 200; // 414 is the most that fits on the screen
+int POP_SIZE = 414; // 414 is the most that fits on the screen
 int currentInView = 0;
 float globalMutationRate = 0.1;
 PFont font;

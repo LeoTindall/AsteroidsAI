@@ -4,8 +4,9 @@ class Player {
   PVector acc;
   
   float INITIAL_FUEL = 50;
-  float INITIAL_AMMO = 100;
+  float INITIAL_AMMO = 5 ;
   float FUEL_PER_FRAME = 0.01;
+  float BULLETS_PER_FRAME = 0.003;
   float ACTIVATION_THRESHOLD = 0.82;
 
   int score = 0;//how many asteroids have been shot
@@ -27,8 +28,6 @@ class Player {
   NeuralNet brain;
   float[] vision = new float[15];//the input array fed into the neuralNet
   float[] lastVision = new float[15]; // the previous input array
-  float[] last2Vision = new float[15]; // the previous input array
-  float[] last3Vision = new float[15]; // the previous input array
   float[] decision = new float[8]; //the out put of the NN 
   boolean replay = false;//whether the player is being raplayed 
   //since asteroids are spawned randomly when replaying the player we need to use a random seed to repeat the same randomness
@@ -41,7 +40,7 @@ class Player {
   String[] visionDescriptors = {
           "Forward", "Foreleft", "Left", "Rearleft", "Rearward", "Rearright", "Right", "Foreright",
           "Can Shoot", "Ammo", "Fuel"};
-  String[] rnnDescriptors = {"Logistic Memory", "Quadratic Memory", "Linear Memory 1", "Linear Memory 2"};
+  String[] rnnDescriptors = {"Negative Memory 1", "Negative Memory 2", "Storage  Memory 1", "Storage  Memory 2"};
 
   int shotsFired =4;//initiated at 4 to encourage shooting
   int shotsHit = 1; //initiated at 1 so players dont get a fitness of 1
@@ -68,7 +67,7 @@ class Player {
     float randX = random(width);
     float randY = -50 +floor(random(2))* (height+100);
     asteroids.add(new Asteroid(randX, randY, pos.x- randX, pos.y - randY, 3));     
-    brain = new NeuralNet(60, 48, 8); // Hidden layers are 2/3 * input + output 
+    brain = new NeuralNet(30, 28, 8); // Hidden layers are 2/3 * input + output
   }
   //------------------------------------------------------------------------------------------------------------------------------------------
   //constructor used for replaying players
@@ -259,7 +258,7 @@ class Player {
   //------------------------------------------------------------------------------------------------------------------------------------------
   //shoot a bullet
   void shoot() {
-    if (shootCount <=0 && ammo > 0) {//if can shoot
+    if (shootCount <=0 && ammo >= 1) {//if can shoot
       bullets.add(new Bullet(pos.x, pos.y, rotation, vel.mag()));//create bullet
       shootCount = 5;//reset shoot count
       canShoot = false;
@@ -278,6 +277,7 @@ class Player {
     }
     // recharge fuel
     fuel += FUEL_PER_FRAME;
+    ammo += BULLETS_PER_FRAME;
     move();//move everything
     checkPositions();//check if anything has been shot or hit
   }
@@ -344,9 +344,8 @@ class Player {
   //for genetic algorithm
   void calculateFitness() {
     float hitRate = (float)shotsHit/(float)shotsFired;
-    fitness = (score+1) * 100;
-    fitness *= lifespan;
-    fitness *= hitRate*hitRate;//includes hitrate to encourage aiming
+    fitness = lifespan;
+    fitness += score * hitRate * hitRate;//includes hitrate to encourage aiming
     
   }
 
@@ -381,15 +380,13 @@ class Player {
   //also takes into account ability to shoot, ammo, and fuel
   void look() {
     // Roll the buffer
-    last3Vision = last2Vision;
-    last2Vision = lastVision;
     lastVision = vision;
     
     // Process recursion.
-    lastVision[11] = constrain(log(decision[4]), 0, 1);
-    lastVision[12] = constrain(decision[5] * decision[5], 0, 1);
-    lastVision[13] = constrain(decision[6], 0, 1);
-    lastVision[14] = constrain(decision[7], 0, 1);
+    lastVision[11] = 1 - decision[4];
+    lastVision[12] = 1 - decision[5];
+    lastVision[13] = decision[6];
+    lastVision[14] = decision[7];
     vision = new float[15];
     //look left
     PVector direction;
@@ -405,8 +402,8 @@ class Player {
       vision[8] =0;
     }
     
-    vision[9] = ammo / INITIAL_AMMO;
-    vision[10] = fuel / INITIAL_FUEL;
+    vision[9] = constrain(ammo / INITIAL_AMMO, 0, 1);
+    vision[10] = constrain(fuel / INITIAL_FUEL, 0, 1);
   }
   //---------------------------------------------------------------------------------------------------------------------------------------------------------  
 
@@ -481,12 +478,12 @@ class Player {
   //convert the output of the neural network to actions
   void think() {
     //get the output of the neural network
-    float[] input = new float[vision.length * 4];
+    float[] input = new float[30];
     for (int i = 0; i < vision.length; i++) {
       input[i] = vision[i];
-      input[i+11] = lastVision[i];
-      input[i+22] = last2Vision[i];
-      input[i+33] = last3Vision[1];
+      input[i+14] = lastVision[i];
+      if (vision[i] != vision[i]) {
+      }
     }
     decision = brain.output(input);
 

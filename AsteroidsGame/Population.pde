@@ -9,7 +9,6 @@ class Population {
   //constructor
   Population(int size) {
     players = new Player[size];
-    int seed = floor(random(1000000000));
     for (int i =0; i<players.length; i++) {
       players[i] = new Player();
     }
@@ -98,8 +97,6 @@ class Population {
   //creates the next generation of players by natural selection
 
   void naturalSelection() {
-
-    int newSeed = floor(random(1000000000));
 
     Player[] newPlayers = new Player[players.length];//Create new players array for the next generation
 
