@@ -17,7 +17,7 @@ Prior to the start of play, 200 AIs are generated with totally random neural net
 ### During Play
 
 During play, every instant (frame), the neural networks are fed a few pieces of information:
-    - How far the closest asteroid is in each of 8 directions (`1/log(distance)`)
+    - How far the closest asteroid is in each of 8 directions
     - How much fuel and ammunition are remaining
     - Whether the weapon has reloaded
 

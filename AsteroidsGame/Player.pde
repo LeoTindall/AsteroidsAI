@@ -3,8 +3,9 @@ class Player {
   PVector vel;
   PVector acc;
   
-  int INITIAL_FUEL = 500;
-  int INITIAL_AMMO = 45;
+  float INITIAL_FUEL = 50;
+  float INITIAL_AMMO = 100;
+  float FUEL_PER_FRAME = 0.01;
   float ACTIVATION_THRESHOLD = 0.82;
 
   int score = 0;//how many asteroids have been shot
@@ -17,8 +18,8 @@ class Player {
   ArrayList<Asteroid> asteroids = new ArrayList<Asteroid>(); // all the asteroids
   int asteroidCount = 1000;//the time until the next asteroid spawns
   int lives = 0;//no lives
-  int fuel = INITIAL_FUEL;
-  int ammo = INITIAL_AMMO;
+  float fuel = INITIAL_FUEL;
+  float ammo = INITIAL_AMMO;
   boolean dead = false;//is it dead
   int immortalCount = 0; //when the player looses a life and respawns it is immortal for a small amount of time  
   int boostCount = 10;//makes the booster flash
@@ -153,7 +154,7 @@ class Player {
   //booster
   void boost() {
     acc = PVector.fromAngle(rotation);
-    if (fuel > 0) {
+    if (fuel >= 1) {
       acc.setMag(0.1);
       fuel -= 0.1;
     } else {
@@ -201,7 +202,7 @@ class Player {
         line(-size-2, -size, -size-2, size);
         line(2* size -2, 0, -22, 15);
         line(2* size -2, 0, -22, -15);
-        if (boosting && fuel > 0) {//when boosting draw "flames" its just a little triangle
+        if (boosting && fuel >= 1) {//when boosting draw "flames" its just a little triangle
           boostCount --;
           if (floor(((float)boostCount)/3)%2 ==0) {//only show it half of the time to appear like its flashing
             line(-size-2, 6, -size-2-12, 0);
@@ -214,9 +215,9 @@ class Player {
         textAlign(LEFT);
         textFont(smallFont);
         fill(256, 256, 0);
-        text("F" + nf(fuel, 6), 10, height - 20);
+        text("F" + nf(fuel, 4, 1), 10, height - 20);
         fill(0, 0, 256);
-        text("A" + nf(ammo, 6), 10, height - 40);
+        text("A" + nf(ammo, 4, 1), 10, height - 40);
         
         // Draw decision counts/inputs
         textAlign(RIGHT);
@@ -260,7 +261,7 @@ class Player {
   void shoot() {
     if (shootCount <=0 && ammo > 0) {//if can shoot
       bullets.add(new Bullet(pos.x, pos.y, rotation, vel.mag()));//create bullet
-      shootCount = 30;//reset shoot count
+      shootCount = 5;//reset shoot count
       canShoot = false;
       shotsFired ++;
       ammo --;
@@ -274,7 +275,9 @@ class Player {
         bullets.remove(i);
         i--;
       }
-    }    
+    }
+    // recharge fuel
+    fuel += FUEL_PER_FRAME;
     move();//move everything
     checkPositions();//check if anything has been shot or hit
   }
@@ -402,8 +405,8 @@ class Player {
       vision[8] =0;
     }
     
-    vision[9] = float(ammo) / INITIAL_AMMO;
-    vision[10] = float(fuel) / INITIAL_FUEL;
+    vision[9] = ammo / INITIAL_AMMO;
+    vision[10] = fuel / INITIAL_FUEL;
   }
   //---------------------------------------------------------------------------------------------------------------------------------------------------------  
 
@@ -423,7 +426,7 @@ class Player {
 
       for (Asteroid a : asteroids) {
         if (a.lookForHit(position) ) {
-          return 1/log(distance);
+          return (60 - distance) / 60;
         }
       }
 
