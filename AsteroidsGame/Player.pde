@@ -3,12 +3,13 @@ class Player {
   PVector vel;
   PVector acc;
   
-  float INITIAL_FUEL = 50;
-  float INITIAL_AMMO = 1;
-  float FUEL_PER_FRAME = 0.01;
-  float BULLETS_PER_FRAME = 0.003;
+  float INITIAL_FUEL = 300;
+  float INITIAL_AMMO = 10;
+  float FUEL_PER_FRAME = 0.0;
+  float BULLETS_PER_FRAME = 0.0;
   float ACTIVATION_THRESHOLD = 0.8;
   float DECEL_RATIO = 0.995;
+  int SHOOT_COUNT_RESET = 5;
 
   int score = 0;//how many asteroids have been shot
   int shootCount = 0;//stops the player from shooting too quickly
@@ -256,7 +257,7 @@ class Player {
   void shoot() {
     if (shootCount <=0 && ammo >= 1) {//if can shoot
       bullets.add(new Bullet(pos.x, pos.y, rotation, vel.mag()));//create bullet
-      shootCount = 5;//reset shoot count
+      shootCount = SHOOT_COUNT_RESET;//reset shoot count
       canShoot = false;
       shotsFired ++;
       ammo --;
