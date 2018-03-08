@@ -61,6 +61,8 @@ class Matrix {
           result.matrix[i][j] = sum;
         }
       }
+    } else {
+      throw new Error("Tried to do matrix.dot with two matrices which did not match ("+ cols + "x" + rows + " vs. " + n.cols + "x" + n.rows +")");
     }
 
     return result;

@@ -7,7 +7,8 @@ class Player {
   float INITIAL_AMMO = 1;
   float FUEL_PER_FRAME = 0.01;
   float BULLETS_PER_FRAME = 0.003;
-  float ACTIVATION_THRESHOLD = 0.9;
+  float ACTIVATION_THRESHOLD = 0.8;
+  float DECEL_RATIO = 0.995;
 
   int score = 0;//how many asteroids have been shot
   int shootCount = 0;//stops the player from shooting too quickly
@@ -26,7 +27,7 @@ class Player {
   int boostCount = 10;//makes the booster flash
   //--------AI stuff
   NeuralNet brain;
-  int VISION_LEN = 11;
+  int VISION_LEN = 15;
   int MEMORY = 2;
   int DECISION_LEN = 4;
   float[] vision = new float[VISION_LEN];//the input array fed into the neuralNet
@@ -41,7 +42,7 @@ class Player {
   
   String[] decisionDescriptors = {"Boost", "Right", "Left", "Fire"};
   String[] visionDescriptors = {
-          "Forward", "Foreleft", "Left", "Rearleft", "Rearward", "Rearright", "Right", "Foreright",
+          "Forward", "Fore Left", "Right", "Rear Right", "Rearward", "Rear Left", "Right", "Fore Right",
           "Can Shoot", "Ammo", "Fuel"};
 
   // Number of shots fired so far
@@ -108,7 +109,7 @@ class Player {
 
       vel.add(acc);//velocity += acceleration
       vel.limit(maxSpeed);
-      //vel.mult(0.99); // uncomment to enable decelleration. I prefer not to have that.
+      vel.mult(DECEL_RATIO); // uncomment to enable decelleration.
       pos.add(vel);//position += velocity
 
       for (int i = 0; i < bullets.size(); i++) {//move all the bullets
@@ -484,6 +485,8 @@ class Player {
     boolean doBoost = decision[0] > ACTIVATION_THRESHOLD;
     float spinMagnitude = norm(decision[1], 0, ACTIVATION_THRESHOLD) * 0.08;
     float spinInverseMagnitude = norm(decision[2], 0, ACTIVATION_THRESHOLD) * 0.08;
+    //boolean doSpinLeft = decision[1] > ACTIVATION_THRESHOLD;
+    //boolean doSpinRight = decision[2] > ACTIVATION_THRESHOLD;
     boolean doShoot = decision[3] > ACTIVATION_THRESHOLD;
 
     // Try to boost!
