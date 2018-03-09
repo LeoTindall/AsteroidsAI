@@ -1,5 +1,5 @@
 // Configuration values
-int POP_SIZE = 414; // 414 is the most that fits on the screen
+int POP_SIZE = 256  ; // 414 is the most that fits on the screen
 int INITIAL_SPEED = 256;
 float INITIAL_MUTATION_RATE = 0.1;
 

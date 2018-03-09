@@ -1,15 +1,15 @@
-class Player {
+class Player implements Comparable {
   PVector pos;
   PVector vel;
   PVector acc;
   
   float INITIAL_FUEL = 300;
-  float INITIAL_AMMO = 10;
+  float INITIAL_AMMO = 50;
   float FUEL_PER_FRAME = 0.0;
   float BULLETS_PER_FRAME = 0.0;
   float ACTIVATION_THRESHOLD = 0.8;
   float DECEL_RATIO = 0.995;
-  int SHOOT_COUNT_RESET = 5;
+  int SHOOT_COUNT_RESET = 60;
 
   int score = 0;//how many asteroids have been shot
   int shootCount = 0;//stops the player from shooting too quickly
@@ -26,13 +26,24 @@ class Player {
   boolean dead = false;//is it dead
   int immortalCount = 0; //when the player looses a life and respawns it is immortal for a small amount of time  
   int boostCount = 10;//makes the booster flash
+  
   //--------AI stuff
   NeuralNet brain;
+  
+  int REACTION_FRAMES = 3;
+  
+  // VISION_LEN is how much info the nn gets per frame.
   int VISION_LEN = 15;
-  int MEMORY = 2;
+  int MEMORY = 100;
+  
+  // DECISION_LEN is how much it puts out - just shoot, left, right, move.
   int DECISION_LEN = 4;
+  // Hidden architecture.
+  int[] HIDDEN_LAYERS = {20};
+  
+  
   float[] vision = new float[VISION_LEN];//the input array fed into the neuralNet
-  float[] lastVision = new float[VISION_LEN]; // the previous input array
+  float[][] lastVisions = new float[MEMORY][VISION_LEN]; // the previous input array
   float[] decision = new float[DECISION_LEN]; //the out put of the NN 
   boolean replay = false;//whether the player is being replayed 
   //since asteroids are spawned randomly when replaying the player we need to use a random seed to repeat the same randomness
@@ -73,7 +84,7 @@ class Player {
     float randX = random(width);
     float randY = -50 +floor(random(2))* (height+100);
     asteroids.add(new Asteroid(randX, randY, pos.x- randX, pos.y - randY, 3));     
-    brain = new NeuralNet(VISION_LEN * MEMORY, VISION_LEN * MEMORY + DECISION_LEN, DECISION_LEN); // Hidden layers are input + output
+    brain = new NeuralNet(VISION_LEN * (MEMORY + 1), HIDDEN_LAYERS, DECISION_LEN); // Hidden layers are input + output
   }
   //------------------------------------------------------------------------------------------------------------------------------------------
   //constructor used for replaying players
@@ -134,7 +145,6 @@ class Player {
     if (asteroidCount<=0) {//spawn asteorid
 
       if (replay) {//if replaying use the seeds from the arrayList
-        randomSeed(seedsUsed.get(upToSeedNo));
         upToSeedNo ++;
       } else {//if not generate the seeds and then save them
         long seed = floor(random(1000000));
@@ -339,13 +349,16 @@ class Player {
 
   //---------------------------------------------------------------------------------------------------------------------------------------------------------<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
   //for genetic algorithm
-  void calculateFitness() {
-    float hitRate = (float)shotsHit/(float)shotsFired;
-    if (hitRate != hitRate) { // if hitRate is NaN then set it to a relatively low rate
-      hitRate = 0.1;
+  float calculateFitness() {
+    fitness = 0;
+    /*float hitRate = (float)shotsHit/(float)shotsFired;
+    if (hitRate == hitRate) { // if hitRate is NaN then ignore it
+      fitness += lifespan * score * hitRate * hitRate;//includes hitrate to encourage aiming
     }
-    fitness = lifespan;
-    fitness += score * hitRate * hitRate;//includes hitrate to encourage aiming
+    fitness += lifespan * score; // lifespan and score are the main thing here*/
+    fitness += lifespan / 10; // If nothing else fall back to lifespan
+    
+    return fitness;
     
   }
 
@@ -379,8 +392,13 @@ class Player {
   //looks in 8 directions to find asteroids
   //also takes into account ability to shoot, ammo, and fuel
   void look() {
+    if (frameCount % REACTION_FRAMES != 0) {
+      return;
+    }
     // Roll the buffer
-    lastVision = vision;
+    for (int i = MEMORY-1; i > 0; i--) {
+      lastVisions[i] = lastVisions[i-1];
+    }
     
     // Look around
     vision = new float[VISION_LEN];
@@ -457,7 +475,7 @@ class Player {
     saveTable(playerStats, "data/playerStats" + playerNo+ ".csv");
 
     //save players brain
-    saveTable(brain.NetToTable(), "data/player" + playerNo+ ".csv");
+    //saveTable(brain.NetToTable(), "data/player" + playerNo+ ".csv");
   }
   //---------------------------------------------------------------------------------------------------------------------------------------------------------  
 
@@ -466,19 +484,19 @@ class Player {
 
     Player load = new Player();
     Table t = loadTable("data/player" + playerNo + ".csv");
-    load.brain.TableToNet(t);
+    //load.brain.TableToNet(t);
     return load;
   }
 
   //---------------------------------------------------------------------------------------------------------------------------------------------------------      
   //convert the output of the neural network to actions
   void think() {
-    //get the output of the neural network
-    float[] input = new float[30];
+    // Fuse all inputs of the network
+    float[] input = new float[VISION_LEN * (MEMORY + 1)];
     for (int i = 0; i < vision.length; i++) {
       input[i] = vision[i];
-      input[i+14] = lastVision[i];
-      if (vision[i] != vision[i]) {
+      for (int j = 0; j < MEMORY; j++) {
+        input[i + (VISION_LEN*(j+1)) - 1] = lastVisions[j][i];
       }
     }
     decision = brain.output(input);
@@ -499,5 +517,10 @@ class Player {
     if (doShoot) {
       shoot();
     }
+  }
+  
+  int compareTo(Object o) {
+    Player p = (Player) o;
+    return new Float(calculateFitness()).compareTo(p.calculateFitness());
   }
 }

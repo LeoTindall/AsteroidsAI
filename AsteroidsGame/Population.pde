@@ -1,3 +1,6 @@
+import java.util.Arrays;
+import java.util.Collections;
+
 class Population {
   Player[] players;//all dem players
   int bestPlayerNo;//the position in the array that the best player of this generation is in
@@ -111,12 +114,14 @@ class Population {
     newPlayers[4] = new Player();
     newPlayers[5] = new Player();
     
+    Arrays.sort(players);
+    
     for (int i = 6; i<players.length; i++) {
       //for each remaining spot in the next generation
       if (i<players.length/2) {
-        newPlayers[i] = selectPlayer().crossover(selectPlayer()); // select a random player (based on fitness) and cross it with another random player
+        newPlayers[i] = players[players.length-1-i].crossover(players[players.length-2-i]); // select a random player (based on fitness) and cross it with another random player
       } else {
-        newPlayers[i] = players[bestPlayerNo].crossover(selectPlayer()); // Select a random player and cross it with the best
+        newPlayers[i] = players[bestPlayerNo].crossover(players[players.length-1-i]); // Select a random player and cross it with the best
       }
       newPlayers[i].mutate(); //mutate it
     }

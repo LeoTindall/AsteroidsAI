@@ -15,17 +15,17 @@ class Asteroid {
 
     switch(sizeNo) {//set the velocity and radius depending on size
     case 1:
-      radius = 15;
+      radius = 7;
       vel.normalize();
       vel.mult(1.25);
       break;
     case 2:
-      radius = 30;
+      radius = 15;
       vel.normalize();
       vel.mult(1);
       break;
     case 3:
-      radius = 60;
+      radius = 30;
       vel.normalize();
       vel.mult(0.75);
       break;
